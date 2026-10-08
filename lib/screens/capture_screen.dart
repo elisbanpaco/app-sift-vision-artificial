@@ -1,28 +1,154 @@
+import 'dart:io';
+
+import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import '../services/sift_service.dart';
 
-// Función para probar el procesamiento SIFT en una imagen seleccionada desde la galería.
-Future<void> probarSift() async {
-  final picker = ImagePicker();                 // Crea una instancia del selector de imágenes.
+import '../services/video_service.dart';
+import '../services/dataset_service.dart';
 
-  final imagen = await picker.pickImage(        // Abre la galería para seleccionar una imagen.
-    source: ImageSource.gallery,                // Especifica que la fuente de la imagen es la galería.
-  );
+class CaptureScreen extends StatefulWidget {
+  const CaptureScreen({super.key});
 
-  if (imagen == null) return;
+  @override
+  State<CaptureScreen> createState() => _CaptureScreenState();
+}
 
-  final siftService = SiftService();                                // Crea una instancia del servicio SIFT para procesar la imagen.
-  final resultado = siftService.procesarImagen(imagen.path);        // Procesa la imagen seleccionada y obtiene los resultados SIFT.
+class _CaptureScreenState extends State<CaptureScreen> {
+  final _nameController = TextEditingController();
+  final _picker = ImagePicker();
+  final _videoService = VideoService();
+  final _datasetService = DatasetService();
 
-  try { // Bloque try-finally para asegurar la liberación de recursos después del procesamiento.
-    debugPrint('Imagen: ${imagen.name}');
-    debugPrint('Puntos clave: ${resultado.totalKeypoints}');
-    debugPrint(
-      'Dimensiones descriptores: '
-      '${resultado.descriptors.rows} x '
-      '${resultado.descriptors.cols}',
+  File? _video;
+  bool _processing = false;
+
+  Future<void> _selectVideo() async {
+    final file = await _picker.pickVideo(
+      source: ImageSource.gallery,
     );
-  } finally {
-    resultado.dispose();
+
+    if (file == null) return;
+
+    setState(() {
+      _video = File(file.path);
+    });
+  }
+
+  Future<void> _recordVideo() async {
+    final file = await _picker.pickVideo(
+      source: ImageSource.camera,
+    );
+
+    if (file == null) return;
+
+    setState(() {
+      _video = File(file.path);
+    });
+  }
+
+  Future<void> _saveDataset() async {
+    final name = _nameController.text.trim();
+
+    if (_video == null || name.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Ingresa un nombre y selecciona un video'),
+        ),
+      );
+      return;
+    }
+
+    setState(() => _processing = true);
+
+    List<File> frames = [];
+
+    try {
+      frames = await _videoService.extractFrames(_video!);
+
+      await _datasetService.saveObject(name, frames);
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Objeto registrado correctamente'),
+        ),
+      );
+
+      _nameController.clear();
+      setState(() => _video = null);
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    } finally {
+      await _videoService.clearFrames(frames);
+
+      if (mounted) {
+        setState(() => _processing = false);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Registrar objeto'),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextField(
+              controller: _nameController,
+              decoration: const InputDecoration(
+                labelText: 'Nombre del objeto',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            ElevatedButton.icon(
+              onPressed: _processing ? null : _recordVideo,
+              icon: const Icon(Icons.videocam),
+              label: const Text('Grabar video'),
+            ),
+
+            ElevatedButton.icon(
+              onPressed: _processing ? null : _selectVideo,
+              icon: const Icon(Icons.video_library),
+              label: const Text('Seleccionar video'),
+            ),
+
+            if (_video != null)
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: Text(
+                  'Video seleccionado: ${_video!.uri.pathSegments.last}',
+                ),
+              ),
+
+            const SizedBox(height: 20),
+
+            ElevatedButton(
+              onPressed: _processing ? null : _saveDataset,
+              child: _processing
+                  ? const CircularProgressIndicator()
+                  : const Text('Crear dataset'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
