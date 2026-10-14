@@ -42,9 +42,11 @@ class MatchingService {
             );
 
             try {
+              // Emparejar object→escena: por cada descriptor del objeto,
+              // buscar sus 2 vecinos más cercanos en la escena.
               final pairs = matcher.knnMatch(
-                query.descriptors,
                 reference.descriptors,
+                query.descriptors,
                 2,
               );
 
@@ -59,22 +61,27 @@ class MatchingService {
                 }
               }
 
+              // Liberar la memoria nativa del resultado knnMatch.
+              pairs.dispose();
+
               if (good.length < 8) continue;
 
+              // src = puntos del objeto (reference)
+              // dst = puntos de la escena (query)
               final srcPoints = <cv.Point2f>[];
               final dstPoints = <cv.Point2f>[];
 
               for (final match in good) {
                 srcPoints.add(
                   cv.Point2f(
-                    query.keypoints[match.queryIdx].x,
-                    query.keypoints[match.queryIdx].y,
+                    reference.keypoints[match.queryIdx].x,
+                    reference.keypoints[match.queryIdx].y,
                   ),
                 );
                 dstPoints.add(
                   cv.Point2f(
-                    reference.keypoints[match.trainIdx].x,
-                    reference.keypoints[match.trainIdx].y,
+                    query.keypoints[match.trainIdx].x,
+                    query.keypoints[match.trainIdx].y,
                   ),
                 );
               }

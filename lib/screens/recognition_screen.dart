@@ -25,6 +25,8 @@ class _RecognitionScreenState extends State<RecognitionScreen> {
     final image = await _picker.pickImage(
       source: ImageSource.camera,
       imageQuality: 90,
+      maxWidth: 800,
+      maxHeight: 800,
     );
 
     if (image == null) return;
