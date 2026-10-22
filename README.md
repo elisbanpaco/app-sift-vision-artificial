@@ -71,9 +71,29 @@ Asegúrate de contar con el entorno preparado para desarrollo móvil con Flutter
    flutter run
    ```
 
+## Delimitar el objeto con SIFT
+
+1. Graba o importa el video y crea el dataset. Se abrirá la pantalla para marcar
+   el objeto; también puedes entrar desde **Ver dataset** tocando su nombre.
+2. Arrastra un recuadro ajustado al objeto en varias imágenes de distintos lados
+   y pulsa **Guardar recuadros**. Solo las imágenes marcadas se usarán como
+   referencias. Los datasets anteriores se conservan, pero necesitan este paso.
+3. En **Reconocer objeto**, toma una foto. Si SIFT encuentra suficientes puntos
+   consistentes, la app dibuja el contorno proyectado del objeto y su nombre.
+
+La localización utiliza SIFT, matching y homografía RANSAC; no utiliza YOLO.
+El contorno sigue la perspectiva de la referencia y se ajusta al tamaño de la
+foto en pantalla. Se rechazan coincidencias insuficientes y proyecciones
+degeneradas. Se localiza el objeto con mejor coincidencia en la foto tomada;
+todavía no hay detección continua ni segmentación de su silueta.
+
+Las superficies con textura y vistas similares a las referencias suelen ser
+más adecuadas. Un recuadro marcado no garantiza reconocer objetos lisos,
+reflejantes, ocultos o desde lados que no aparecen en las referencias.
+
 ## 🧠 ¿Cómo funciona el algoritmo de reconocimiento bajo el capó?
 
-1. **Extracción SIFT (`sift_service.dart`)**: Al registrar un objeto o analizar una consulta, la imagen se convierte a escala de grises. SIFT detecta *keypoints* (puntos de interés) y extrae sus respectivos *descriptores* matemáticos (vectores de 128 dimensiones).
+1. **Extracción SIFT (`sift_service.dart`)**: Al analizar una consulta, la imagen se convierte a escala de grises. En las referencias se usa una máscara que limita los puntos al recuadro marcado del objeto. SIFT detecta *keypoints* (puntos de interés) y extrae sus respectivos *descriptores* matemáticos (vectores de 128 dimensiones).
 2. **Matching KNN (`matching_service.dart`)**: Durante el reconocimiento, los descriptores de la cámara se comparan contra todo el dataset usando `BFMatcher` (K-Nearest Neighbors con K=2).
 3. **Lowe's Ratio Test**: Se descartan emparejamientos ambiguos. Solo se conservan aquellos donde la distancia al mejor emparejamiento es significativamente menor (0.75x) que la distancia al segundo mejor.
 4. **Validación Geométrica (RANSAC)**: Con los *matches* resultantes, se intenta calcular una matriz de homografía 2D entre la imagen de referencia y la de consulta. Si la transformación geométrica es coherente y tiene suficientes *inliers* (mínimo 8 puntos), el objeto se considera como detectado con éxito.
