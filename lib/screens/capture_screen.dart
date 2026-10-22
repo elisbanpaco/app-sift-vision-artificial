@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../services/video_service.dart';
 import '../services/dataset_service.dart';
+import 'object_region_screen.dart';
 
 class CaptureScreen extends StatefulWidget {
   const CaptureScreen({super.key});
@@ -23,9 +24,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
   bool _processing = false;
 
   Future<void> _selectVideo() async {
-    final file = await _picker.pickVideo(
-      source: ImageSource.gallery,
-    );
+    final file = await _picker.pickVideo(source: ImageSource.gallery);
 
     if (file == null) return;
 
@@ -35,9 +34,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
   }
 
   Future<void> _recordVideo() async {
-    final file = await _picker.pickVideo(
-      source: ImageSource.camera,
-    );
+    final file = await _picker.pickVideo(source: ImageSource.camera);
 
     if (file == null) return;
 
@@ -65,24 +62,25 @@ class _CaptureScreenState extends State<CaptureScreen> {
     try {
       frames = await _videoService.extractFrames(_video!);
 
-      await _datasetService.saveObject(name, frames);
+      final object = await _datasetService.saveObject(name, frames);
 
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Objeto registrado correctamente'),
-        ),
+        const SnackBar(content: Text('Objeto registrado correctamente')),
       );
 
       _nameController.clear();
       setState(() => _video = null);
+      await Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => ObjectRegionScreen(object: object)),
+      );
     } catch (e) {
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Error: $e')));
     } finally {
       await _videoService.clearFrames(frames);
 
@@ -101,9 +99,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Registrar objeto'),
-      ),
+      appBar: AppBar(title: const Text('Registrar objeto')),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(

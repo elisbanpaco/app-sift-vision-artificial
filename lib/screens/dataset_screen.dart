@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../services/dataset_service.dart';
+import 'object_region_screen.dart';
 
 class DatasetScreen extends StatefulWidget {
   const DatasetScreen({super.key});
@@ -37,30 +38,22 @@ class _DatasetScreenState extends State<DatasetScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Dataset de objetos'),
-      ),
+      appBar: AppBar(title: const Text('Dataset de objetos')),
       body: FutureBuilder<List<DatasetObject>>(
         future: _objects,
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(
-              child: CircularProgressIndicator(),
-            );
+            return const Center(child: CircularProgressIndicator());
           }
 
           if (snapshot.hasError) {
-            return Center(
-              child: Text('Error: ${snapshot.error}'),
-            );
+            return Center(child: Text('Error: ${snapshot.error}'));
           }
 
           final objects = snapshot.data ?? [];
 
           if (objects.isEmpty) {
-            return const Center(
-              child: Text('No hay objetos registrados'),
-            );
+            return const Center(child: Text('No hay objetos registrados'));
           }
 
           return ListView.builder(
@@ -70,6 +63,15 @@ class _DatasetScreenState extends State<DatasetScreen> {
 
               return Card(
                 child: ListTile(
+                  onTap: () async {
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ObjectRegionScreen(object: object),
+                      ),
+                    );
+                    if (mounted) setState(_loadObjects);
+                  },
                   leading: object.images.isNotEmpty
                       ? Image.file(
                           File(object.images.first),
@@ -80,7 +82,7 @@ class _DatasetScreenState extends State<DatasetScreen> {
                       : const Icon(Icons.image),
                   title: Text(object.name),
                   subtitle: Text(
-                    '${object.images.length} imágenes',
+                    '${object.images.length} imágenes · ${object.regions.length} marcadas\nToca para marcar el objeto',
                   ),
                   trailing: IconButton(
                     icon: const Icon(Icons.delete),
