@@ -1,10 +1,11 @@
-
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../services/matching_service.dart';
+import '../widgets/object_image.dart';
+import 'dataset_screen.dart';
 
 class RecognitionScreen extends StatefulWidget {
   const RecognitionScreen({super.key});
@@ -20,6 +21,7 @@ class _RecognitionScreenState extends State<RecognitionScreen> {
   File? _image;
   MatchResult? _result;
   bool _processing = false;
+  String? _error;
 
   Future<void> _recognize() async {
     final image = await _picker.pickImage(
@@ -30,10 +32,12 @@ class _RecognitionScreenState extends State<RecognitionScreen> {
     );
 
     if (image == null) return;
+    if (!mounted) return;
 
     setState(() {
       _image = File(image.path);
       _result = null;
+      _error = null;
       _processing = true;
     });
 
@@ -46,8 +50,10 @@ class _RecognitionScreenState extends State<RecognitionScreen> {
     } catch (e) {
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
+      setState(
+        () => _error = e is StateError
+            ? e.message
+            : 'No se pudo analizar la imagen: $e',
       );
     } finally {
       if (mounted) {
@@ -59,9 +65,7 @@ class _RecognitionScreenState extends State<RecognitionScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Reconocer objeto'),
-      ),
+      appBar: AppBar(title: const Text('Reconocer objeto')),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -69,30 +73,25 @@ class _RecognitionScreenState extends State<RecognitionScreen> {
           children: [
             Expanded(
               child: _image == null
-                  ? const Center(
-                      child: Icon(
-                        Icons.camera_alt,
-                        size: 100,
-                      ),
-                    )
-                  : Image.file(
-                      _image!,
-                      fit: BoxFit.contain,
+                  ? const Center(child: Icon(Icons.camera_alt, size: 100))
+                  : ObjectImage(
+                      image: _image!,
+                      outline: _result?.outline ?? const [],
+                      label: _result?.object.name,
                     ),
             ),
 
-            if (_processing)
-              const Center(
-                child: CircularProgressIndicator(),
-              ),
+            if (_processing) const Center(child: CircularProgressIndicator()),
 
             if (!_processing && _image != null)
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(16),
-                  child: _result == null
+                  child: _error != null
+                      ? Text(_error!, textAlign: TextAlign.center)
+                      : _result == null
                       ? const Text(
-                          'Objeto no reconocido',
+                          'Objeto no reconocido. Prueba una vista similar a una imagen marcada del dataset.',
                           textAlign: TextAlign.center,
                         )
                       : Column(
@@ -104,12 +103,7 @@ class _RecognitionScreenState extends State<RecognitionScreen> {
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                            Text(
-                              'Coincidencias: ${_result!.matches}',
-                            ),
-                            Text(
-                              'Coincidencias verificadas: ${_result!.inliers}',
-                            ),
+                            const Text('Objeto localizado con SIFT'),
                           ],
                         ),
                 ),
@@ -119,6 +113,15 @@ class _RecognitionScreenState extends State<RecognitionScreen> {
               onPressed: _processing ? null : _recognize,
               icon: const Icon(Icons.camera_alt),
               label: const Text('Reconocer objeto'),
+            ),
+            TextButton(
+              onPressed: _processing
+                  ? null
+                  : () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const DatasetScreen()),
+                    ),
+              child: const Text('Marcar objetos del dataset'),
             ),
           ],
         ),
