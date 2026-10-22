@@ -52,6 +52,18 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
 
+# Dart exposes these APIs even when their native modules are excluded.
+# Keep image IO/processing as well as SIFT, matching and homography enabled.
+hooks:
+  user_defines:
+    dartcv4:
+      include_modules:
+        - imgcodecs
+        - imgproc
+        - features2d
+        - flann
+        - calib3d
+
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 
