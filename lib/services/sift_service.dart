@@ -4,12 +4,21 @@ import 'dart:io';
 
 import 'package:opencv_dart/opencv.dart' as cv;
 
+import 'object_region.dart';
+
 /// Resultado del procesamiento SIFT.
 class SiftResult {
   final cv.VecKeyPoint keypoints;
   final cv.Mat descriptors;
+  final int width;
+  final int height;
 
-  SiftResult({required this.keypoints, required this.descriptors});
+  SiftResult({
+    required this.keypoints,
+    required this.descriptors,
+    required this.width,
+    required this.height,
+  });
 
   int get totalKeypoints => keypoints.length;
 
@@ -22,7 +31,10 @@ class SiftResult {
 /// Servicio de extracción de características SIFT.
 class SiftService {
   /// Procesa una imagen y extrae características.
-  SiftResult extractFeatures(File imageFile) {
+  SiftResult extractFeatures(File imageFile, {ObjectRegion? region}) {
+    if (region != null && !region.isValid) {
+      throw ArgumentError('Región del objeto inválida');
+    }
     // Carga la imagen en escala de grises.
     final image = cv.imread(imageFile.path, flags: cv.IMREAD_GRAYSCALE);
 
@@ -34,10 +46,32 @@ class SiftService {
     try {
       final sift = cv.SIFT.create();
       try {
-        final mask = cv.Mat.empty();
+        final mask = region == null
+            ? cv.Mat.empty()
+            : cv.Mat.zeros(image.rows, image.cols, cv.MatType.CV_8UC1);
         try {
+          if (region != null) {
+            final left = (region.left * image.cols).floor();
+            final top = (region.top * image.rows).floor();
+            cv.rectangle(
+              mask,
+              cv.Rect(
+                left,
+                top,
+                (region.right * image.cols).ceil() - left,
+                (region.bottom * image.rows).ceil() - top,
+              ),
+              cv.Scalar.all(255),
+              thickness: -1,
+            );
+          }
           final (keypoints, descriptors) = sift.detectAndCompute(image, mask);
-          return SiftResult(keypoints: keypoints, descriptors: descriptors);
+          return SiftResult(
+            keypoints: keypoints,
+            descriptors: descriptors,
+            width: image.cols,
+            height: image.rows,
+          );
         } finally {
           mask.dispose();
         }
